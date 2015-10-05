@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Ground Overlays</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    
+    <script src="jq.js"></script>
+    <script>
+    //map data
+      var imageBounds = {
+	    north: 37.759014,
+	    south: 37.745746,
+	    east: -122.477195,
+	    west: -122.493977
+	  };
+    </script>
+    <script>
+    var data;
+    var dataArray;
+    var dataObject={};
+    var pointInt=0;
+    var pointObject={};
+    $.ajax({
+	  	url: "part.svg"
+  	}).done(function(d) {
+  	  	console.log(d);
+  	  	data = $(d).children().children("path").attr("d")
+        data = data.substr(1);
+        data = data.substr(0, data.length-1); 
+        data = data.replace(/-/g, ",-");
+        dataArray = data.split("C");
+        // 大写字母loop
+        for(var i=0;i<dataArray.length;i++){
+          dataObject["pointlist"+i]=dataArray[i].split("c");
+          //线loop
+          for(var u=0;u<dataObject["pointlist"+i].length;u++){
+            var pointStore;
+            pointStore = dataObject["pointlist"+i][u].split(",");
+            
+            if(!pointStore[0]){
+              pointStore.shift();
+            }
+            pointObject["point"+pointInt] = [];
+            //点坐标loop
+            if(u==0){
+              for(var v=0;v<pointStore.length;v++){
+                pointObject["point"+pointInt].push(Number(pointStore[v]));
+              }
+            }else{
+              for(var v=0;v<pointStore.length;v++){
+                if(v % 2 == 0){
+                  pointObject["point"+pointInt].push(Number(pointStore[v]) + pointObject["point" + (pointInt - 1)][pointObject["point" + (pointInt - 1)].length - 2]);
+                }else{
+                  pointObject["point"+pointInt].push(Number(pointStore[v]) + pointObject["point" + (pointInt - 1)][pointObject["point" + (pointInt - 1)].length - 1]);
+                }
+              }
+            }
+            pointInt++;
+          }
+          
+        }
+
+  	}).always(function(d){
+  		console.log("ajax",d);
+  	})
+    </script>
+    <script>
+    //check real point path
+    var linepoint="";
+    for(var key in pointObject) { 
+       if (pointObject.hasOwnProperty(key)) {
+        //remember replace first to M and add z at the end
+           linepoint+="L"+pointObject[key][pointObject[key].length-2]+","+pointObject[key][pointObject[key].length-1];
+       }
+    }
+    </script>
+    <script>
+    // create road matrix to pix
+    var streetdata;
+    var streetpx={};
+    var streetpath="";
+    $.ajax({
+    	url:"matrix.json"
+    }).always(function(d){
+    	console.log("street run",d);
+    }).done(function(d){
+    	console.log(d);
+    	streetdata=d;
+    	for(var key in streetdata){
+    		if(streetdata.hasOwnProperty(key)){
+    			streetpx[key]=[];
+    			for(var i = 0; i < streetdata[key].length;i++){
+    				var storepx=[];
+    				storepx.push((streetdata[key][i][0]-imageBounds.north)/(imageBounds.south-imageBounds.north)*500);
+    				storepx.push((streetdata[key][i][1]-imageBounds.west)/(imageBounds.east-imageBounds.west)*500);
+    				streetpx[key].push(storepx);
+    			}
+    		}
+    	}
+    	//<line x1="" y1="" x2="" y2=""/>
+    	//line
+    	for(var i = 0; i < streetpx.left.length; i++){
+    		streetpath += "<line  class='st0' x1='" + streetpx.left[i][1] + "' y1='" + streetpx.left[i][0] + "' x2='" + streetpx.right[i][1] + "' y2='" + streetpx.right[i][0] + "'/>"
+    	}
+    	//row
+    	for(var i = 0; i < streetpx.top.length; i++){
+    		streetpath += "<line  class='st0' x1='" + streetpx.top[i][1] + "' y1='" + streetpx.top[i][0] + "' x2='" + streetpx.bottom[i][1] + "' y2='" + streetpx.bottom[i][0] + "'/>"
+    	}
+    })
+
+    </script>
+    <script>
+// This example uses a GroundOverlay to place an image on the map
+// showing an antique map of Newark, NJ.
+
+var historicalOverlay;
+var outline;
+var streetline;
+var map;
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 15,
+    center: {lat: 37.753789, lng: -122.486245}
+  });
+
+  historicalOverlay = new google.maps.GroundOverlay(
+    'part.svg',
+    imageBounds);
+  historicalOverlay.setMap(map);
+  outline = new google.maps.GroundOverlay(
+    'partline.svg',
+    imageBounds);
+  outline.setMap(map);
+  streetline = new google.maps.GroundOverlay(
+    'streetline.svg',
+    imageBounds);
+  streetline.setMap(map);
+}
+
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBdZW6nLZhnv1Elzui4z5gh61eHFNzQwCo&callback=initMap&signed_in=true" async defer>
+    </script>
+  </body>
+</html>
